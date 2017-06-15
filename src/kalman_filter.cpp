@@ -15,7 +15,6 @@ void KalmanFilter::Init(VectorXd &x_in, MatrixXd &P_in, MatrixXd &F_in,
   H_ = H_in;
   R_ = R_in;
   Q_ = Q_in;
-  I_2x2 = MatrixXd::Identity(2, 2);
 }
 
 void KalmanFilter::Predict() {
@@ -45,7 +44,7 @@ void KalmanFilter::Update(const VectorXd &z) {
 
 }
 
-VectorXd radar_h(const VectorXd &x_in){
+VectorXd radar_h(const VectorXd &x_state){
   //recover state parameters
   float px = x_state(0);
   float py = x_state(1);
@@ -54,10 +53,12 @@ VectorXd radar_h(const VectorXd &x_in){
 
   VectorXd x(3);
   float norm = sqrt(px*px + py*py);
-  x << norm,
-      atan2(py, px),
-      (px*vx + py*vy) / norm;
+  float phi = atan2(py, px);
+  static float norm_dot = 0.0f;
+  if(norm > 0.1f) norm_dot = (px*vx + py*vy) / norm;
 
+  x << norm, phi, norm_dot;
+      
   return x;
 }
 
@@ -68,6 +69,7 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
   */
   VectorXd z_pred = radar_h(x_);
   VectorXd y = z - z_pred;
+  y(1) = fmod(y(1), 3.14159f);
   MatrixXd Ht = H_.transpose();
   MatrixXd S = H_ * P_ * Ht + R_;
   MatrixXd Si = S.inverse();
